@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NEON BREW NODE // SYSTEM v2.0.77</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --neon-cyan:#00f5ff;
+  --neon-magenta:#ff00aa;
+  --neon-green:#39ff14;
+  --neon-orange:#ff6b00;
+  --bg-deep:#05010a;
+  --bg-glass:rgba(0,10,20,0.75);
+  --border-cyan:rgba(0,245,255,0.3);
+  --border-magenta:rgba(255,0,170,0.3);
+  --text-dim:rgba(0,245,255,0.5);
+  --touch-min:52px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-deep);color:var(--neon-cyan);font-family:'Share Tech Mono',monospace;-webkit-font-smoothing:antialiased;touch-action:none}
+
+/* hide mouse cursor only on non-touch */
+@media (hover:hover){
+  body{cursor:none}
+  #cursor,#cursor-dot{display:block}
+}
+@media (hover:none){
+  #cursor,#cursor-dot{display:none}
+}
+
+/* CUSTOM CURSOR (mouse only) */
+#cursor{position:fixed;width:20px;height:20px;border:1px solid var(--neon-cyan);border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);transition:width .15s,height .15s;display:none}
+#cursor-dot{position:fixed;width:4px;height:4px;background:var(--neon-cyan);border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);display:none}
+
+/* SCANLINES */
+#scanlines{position:fixed;inset:0;z-index:9000;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.12) 2px,rgba(0,0,0,0.12) 4px)}
+
+/* GLITCH OVERLAY */
+.glitch-overlay{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;background:rgba(0,245,255,0.03);animation:flicker 8s infinite}
+
+/* ===== BOOT SCREEN ===== */
+#boot{position:fixed;inset:0;z-index:8000;background:var(--bg-deep);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+#boot-canvas{position:absolute;inset:0;z-index:0}
+#boot-content{position:relative;z-index:1;text-align:center;width:90%;max-width:700px;padding:0 1rem}
+.boot-logo{font-family:'Orbitron',monospace;font-size:clamp(2.2rem,7vw,4rem);font-weight:900;color:var(--neon-cyan);text-shadow:0 0 30px var(--neon-cyan),0 0 60px rgba(0,245,255,0.5);letter-spacing:.15em;animation:glitch-text 4s infinite}
+.boot-sub{font-size:clamp(.75rem,2vw,1rem);color:var(--neon-magenta);letter-spacing:.25em;margin-top:.5rem;text-shadow:0 0 15px var(--neon-magenta)}
+#boot-terminal{margin-top:2rem;text-align:left;font-size:clamp(.65rem,1.8vw,.85rem);line-height:1.9;color:var(--neon-green);max-height:220px;overflow:hidden}
+.boot-line{opacity:0;transform:translateX(-10px);transition:opacity .3s,transform .3s}
+.boot-line.show{opacity:1;transform:translateX(0)}
+.boot-cursor{display:inline-block;width:10px;height:1em;background:var(--neon-green);animation:blink .7s step-end infinite;vertical-align:text-bottom;margin-left:2px}
+#boot-progress{margin-top:1.5rem;width:100%;height:3px;background:rgba(0,245,255,0.1);border-radius:2px;overflow:hidden}
+#boot-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-magenta));transition:width 2s ease;box-shadow:0 0 10px var(--neon-cyan)}
+#access-granted{margin-top:1.2rem;font-family:'Orbitron',monospace;font-size:clamp(1rem,3vw,1.8rem);font-weight:700;color:var(--neon-green);opacity:0;text-shadow:0 0 20px var(--neon-green),0 0 40px rgba(57,255,20,0.5);letter-spacing:.2em;transition:opacity .5s}
+
+/* ===== MAIN APP ===== */
+#app{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;overflow:hidden}
+#app.show{display:flex}
+
+/* HUD TOP BAR */
+#hud-top{display:flex;align-items:center;justify-content:space-between;padding:.55rem 1.2rem;border-bottom:1px solid var(--border-cyan);background:rgba(0,5,10,0.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);position:relative;z-index:100;flex-shrink:0;gap:.5rem}
+.hud-logo{font-family:'Orbitron',monospace;font-size:clamp(.75rem,.9rem,1rem);font-weight:900;color:var(--neon-cyan);letter-spacing:.12em;text-shadow:0 0 10px var(--neon-cyan);white-space:nowrap}
+.hud-logo span{color:var(--neon-magenta)}
+.hud-center{font-size:.65rem;color:var(--text-dim);letter-spacing:.15em;display:none}
+@media(min-width:600px){.hud-center{display:block}}
+.hud-right{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+#cart-btn{background:rgba(0,245,255,0.08);border:1px solid var(--border-cyan);color:var(--neon-cyan);padding:.45rem .9rem;font-family:'Share Tech Mono',monospace;font-size:.72rem;letter-spacing:.08em;cursor:pointer;transition:all .2s;position:relative;min-height:var(--touch-min);display:flex;align-items:center;gap:.4rem;white-space:nowrap}
+#cart-btn:active{background:rgba(0,245,255,0.18)}
+#cart-count{background:var(--neon-magenta);color:#000;border-radius:50%;font-size:.6rem;width:18px;height:18px;display:none;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.sys-time{font-size:.65rem;color:var(--text-dim);letter-spacing:.08em;white-space:nowrap}
+
+/* HELP BUTTON */
+#help-btn{background:rgba(255,0,170,0.08);border:1px solid var(--border-magenta);color:var(--neon-magenta);width:var(--touch-min);height:var(--touch-min);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;font-weight:700;font-family:'Orbitron',monospace;transition:all .2s;flex-shrink:0;border-radius:2px;position:relative}
+#help-btn:active{background:rgba(255,0,170,0.2)}
+#help-btn::after{content:'?';font-size:1.2rem}
+
+/* MENU AREA */
+#menu-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:.5rem 0}
+
+/* CATEGORY TABS */
+#categories{display:flex;gap:.4rem;margin-bottom:1.2rem;z-index:10;flex-wrap:wrap;justify-content:center;padding:0 1rem}
+.cat-btn{background:transparent;border:1px solid rgba(0,245,255,0.2);color:var(--text-dim);padding:.4rem .75rem;font-family:'Share Tech Mono',monospace;font-size:.62rem;letter-spacing:.12em;cursor:pointer;transition:all .2s;min-height:40px;display:flex;align-items:center}
+.cat-btn.active{border-color:var(--neon-cyan);color:var(--neon-cyan);background:rgba(0,245,255,0.08);box-shadow:0 0 10px rgba(0,245,255,0.2)}
+.cat-btn:active{opacity:.7}
+
+/* CARD CAROUSEL */
+#carousel-wrap{position:relative;width:100%;display:flex;align-items:center;justify-content:center;padding:0 3.5rem}
+#cards-viewport{width:100%;overflow:hidden;position:relative}
+#cards-track{display:flex;transition:transform .45s cubic-bezier(0.25,0.46,0.45,0.94);will-change:transform}
+
+/* iPad adaptive card size */
+.menu-card{flex:0 0 clamp(260px,38vw,340px);margin:0 .6rem;background:var(--bg-glass);border:1px solid var(--border-cyan);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:1.2rem;position:relative;transition:opacity .4s cubic-bezier(0.25,0.46,0.45,0.94),transform .4s cubic-bezier(0.25,0.46,0.45,0.94);opacity:.45;transform:scale(.88);cursor:pointer;overflow:hidden}
+.menu-card.active{opacity:1;transform:scale(1);box-shadow:0 0 35px rgba(0,245,255,0.15),0 0 70px rgba(0,245,255,0.05)}
+.menu-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,245,255,0.04) 0%,transparent 60%);pointer-events:none}
+.menu-card::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--neon-cyan),transparent);animation:scan-line 3s linear infinite}
+.card-corner{position:absolute;width:10px;height:10px;border-color:var(--neon-cyan);border-style:solid}
+.card-corner.tl{top:7px;left:7px;border-width:2px 0 0 2px}
+.card-corner.tr{top:7px;right:7px;border-width:2px 2px 0 0}
+.card-corner.bl{bottom:7px;left:7px;border-width:0 0 2px 2px}
+.card-corner.br{bottom:7px;right:7px;border-width:0 2px 2px 0}
+.card-tag{position:absolute;top:10px;right:10px;font-size:.55rem;letter-spacing:.18em;padding:.18rem .45rem;border:1px solid}
+.card-tag.hot{border-color:var(--neon-orange);color:var(--neon-orange)}
+.card-tag.new{border-color:var(--neon-magenta);color:var(--neon-magenta)}
+.card-img-wrap{width:100%;height:clamp(130px,18vw,180px);overflow:hidden;margin-bottom:.9rem;position:relative;background:rgba(0,0,0,0.5)}
+.card-img-wrap img{width:100%;height:100%;object-fit:cover;filter:saturate(1.3) brightness(0.85);transition:transform .4s}
+.menu-card.active .card-img-wrap img{transform:scale(1.03)}
+.card-img-overlay{position:absolute;inset:0;background:linear-gradient(to top,var(--bg-glass) 0%,transparent 50%)}
+.card-cat-label{font-size:.55rem;color:var(--text-dim);letter-spacing:.22em;margin-bottom:.25rem}
+.card-name{font-family:'Orbitron',monospace;font-size:clamp(.85rem,.9rem,1rem);font-weight:700;color:var(--neon-cyan);letter-spacing:.07em;margin-bottom:.25rem;text-shadow:0 0 8px rgba(0,245,255,0.4);line-height:1.2}
+.card-desc{font-size:.7rem;color:rgba(0,245,255,0.6);line-height:1.5;margin-bottom:.7rem;font-family:'Rajdhani',sans-serif;font-weight:400}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:.4rem}
+.card-price{font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:700;color:var(--neon-magenta);text-shadow:0 0 10px rgba(255,0,170,0.5)}
+.add-btn{background:transparent;border:1px solid var(--neon-cyan);color:var(--neon-cyan);padding:.55rem .9rem;font-family:'Share Tech Mono',monospace;font-size:.68rem;letter-spacing:.08em;cursor:pointer;transition:all .22s;position:relative;overflow:hidden;min-height:42px}
+.add-btn::before{content:'';position:absolute;inset:0;background:var(--neon-cyan);transform:translateX(-101%);transition:transform .22s}
+.add-btn:active::before{transform:translateX(0)}
+.add-btn:active{color:#000}
+.add-btn span{position:relative;z-index:1}
+.add-btn.clicked{animation:btn-flash .3s ease}
+
+/* NAV ARROWS — bigger for iPad touch */
+.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,245,255,0.06);border:1px solid var(--border-cyan);color:var(--neon-cyan);width:48px;height:56px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.3rem;transition:all .2s;z-index:10;-webkit-tap-highlight-color:transparent}
+.nav-arrow:active{background:rgba(0,245,255,0.2)}
+.nav-arrow[disabled]{opacity:.18;pointer-events:none}
+#prev-btn{left:0}
+#next-btn{right:0}
+
+/* DOTS */
+#dots-wrap{display:flex;gap:.45rem;margin-top:1rem;flex-wrap:wrap;justify-content:center;padding:0 1rem;max-width:280px}
+.dot{width:7px;height:7px;border:1px solid var(--border-cyan);border-radius:50%;transition:all .3s;cursor:pointer;min-width:7px}
+.dot.active{background:var(--neon-cyan);box-shadow:0 0 8px var(--neon-cyan)}
+
+/* PRODUCT COUNTER */
+#prod-counter{font-size:.62rem;color:var(--text-dim);letter-spacing:.18em;margin-top:.45rem}
+
+/* HUD BOTTOM */
+#hud-bottom{padding:.45rem 1.2rem;border-top:1px solid var(--border-cyan);background:rgba(0,5,10,0.9);display:flex;align-items:center;justify-content:space-between;font-size:.6rem;color:var(--text-dim);letter-spacing:.12em;flex-shrink:0}
+
+/* ===== CART PANEL ===== */
+#cart-panel{position:fixed;top:0;right:-105%;width:min(400px,95vw);height:100%;background:rgba(2,5,15,0.97);border-left:1px solid var(--border-cyan);z-index:5000;display:flex;flex-direction:column;transition:right .4s cubic-bezier(0.25,0.46,0.45,0.94);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+#cart-panel.open{right:0}
+#cart-header{padding:1.1rem 1.3rem;border-bottom:1px solid var(--border-cyan);display:flex;align-items:center;justify-content:space-between}
+.cart-title{font-family:'Orbitron',monospace;font-size:.85rem;font-weight:700;color:var(--neon-cyan);letter-spacing:.12em}
+#cart-close{background:transparent;border:1px solid var(--border-cyan);color:var(--neon-cyan);width:44px;height:44px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+#cart-close:active{background:rgba(0,245,255,0.15)}
+#cart-items{flex:1;overflow-y:auto;padding:.9rem 1.3rem;-webkit-overflow-scrolling:touch}
+#cart-items::-webkit-scrollbar{width:3px}
+#cart-items::-webkit-scrollbar-thumb{background:var(--border-cyan)}
+.cart-empty{color:var(--text-dim);font-size:.78rem;letter-spacing:.12em;text-align:center;margin-top:3rem;line-height:2.2}
+.cart-item{display:flex;align-items:center;gap:.9rem;padding:.9rem 0;border-bottom:1px solid rgba(0,245,255,0.1)}
+.cart-item-info{flex:1}
+.cart-item-name{font-size:.75rem;color:var(--neon-cyan);letter-spacing:.04em;margin-bottom:.2rem;line-height:1.3}
+.cart-item-price{font-size:.72rem;color:var(--neon-magenta);font-family:'Orbitron',monospace}
+.cart-item-qty{display:flex;align-items:center;gap:.4rem}
+.qty-btn{background:transparent;border:1px solid var(--border-cyan);color:var(--neon-cyan);width:36px;height:36px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.qty-btn:active{background:rgba(0,245,255,0.2)}
+.qty-val{font-size:.85rem;color:var(--neon-cyan);min-width:24px;text-align:center}
+#cart-footer{padding:1.1rem 1.3rem;border-top:1px solid var(--border-cyan)}
+.cart-total-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;font-size:.78rem}
+.cart-total-label{color:var(--text-dim);letter-spacing:.12em}
+.cart-total-val{font-family:'Orbitron',monospace;font-size:1.1rem;color:var(--neon-magenta);text-shadow:0 0 10px rgba(255,0,170,0.5)}
+#checkout-btn{width:100%;padding:.9rem;background:transparent;border:1px solid var(--neon-magenta);color:var(--neon-magenta);font-family:'Share Tech Mono',monospace;font-size:.78rem;letter-spacing:.12em;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;min-height:52px}
+#checkout-btn::before{content:'';position:absolute;inset:0;background:var(--neon-magenta);transform:translateX(-101%);transition:transform .3s}
+#checkout-btn:active::before{transform:translateX(0)}
+#checkout-btn:active{color:#000}
+#checkout-btn span{position:relative;z-index:1}
+
+/* ===== CHECKOUT OVERLAY ===== */
+#checkout-overlay{position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,0.96);display:none;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;padding:1rem}
+#checkout-overlay.show{display:flex}
+#checkout-bg-canvas{position:absolute;inset:0;z-index:0}
+#checkout-panel{position:relative;z-index:1;width:100%;max-width:480px;background:var(--bg-glass);border:1px solid var(--border-magenta);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);padding:clamp(1.5rem,4vw,2.5rem);text-align:center}
+.checkout-title{font-family:'Orbitron',monospace;font-size:clamp(1.1rem,3vw,1.4rem);font-weight:900;color:var(--neon-magenta);letter-spacing:.12em;text-shadow:0 0 20px var(--neon-magenta);margin-bottom:.3rem}
+.checkout-sub{font-size:.68rem;color:rgba(255,0,170,0.5);letter-spacing:.2em;margin-bottom:1.5rem}
+.checkout-amount{font-family:'Orbitron',monospace;font-size:clamp(2rem,6vw,2.5rem);font-weight:900;color:var(--neon-cyan);text-shadow:0 0 20px var(--neon-cyan);margin-bottom:.3rem}
+.checkout-amount-label{font-size:.62rem;color:var(--text-dim);letter-spacing:.22em;margin-bottom:1.5rem}
+.payment-methods{display:flex;gap:.7rem;margin-bottom:1.5rem;justify-content:center}
+.pay-method{flex:1;max-width:130px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,0,170,0.2);padding:.9rem .5rem;cursor:pointer;transition:all .22s;display:flex;flex-direction:column;align-items:center;gap:.4rem;min-height:80px}
+.pay-method:active,.pay-method.selected{border-color:var(--neon-magenta);background:rgba(255,0,170,0.1);box-shadow:0 0 15px rgba(255,0,170,0.25)}
+.pay-icon{font-size:1.4rem;line-height:1}
+.pay-label{font-size:.6rem;color:rgba(255,0,170,0.7);letter-spacing:.08em}
+.tap-indicator{width:72px;height:72px;border-radius:50%;border:2px solid var(--neon-magenta);display:flex;align-items:center;justify-content:center;margin:0 auto 1.2rem;position:relative;animation:pulse-ring 1.5s ease-out infinite}
+.tap-indicator svg{width:32px;height:32px;fill:none;stroke:var(--neon-magenta);stroke-width:2}
+.tap-indicator::before{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(255,0,170,0.3);animation:pulse-ring 1.5s .3s ease-out infinite}
+#confirm-btn{width:100%;padding:.95rem;background:transparent;border:2px solid var(--neon-magenta);color:var(--neon-magenta);font-family:'Orbitron',monospace;font-size:.82rem;font-weight:700;letter-spacing:.18em;cursor:pointer;transition:all .3s;position:relative;overflow:hidden;margin-bottom:.8rem;min-height:54px}
+#confirm-btn::before{content:'';position:absolute;inset:0;background:var(--neon-magenta);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+#confirm-btn:active::before{transform:scaleX(1)}
+#confirm-btn:active{color:#000}
+#confirm-btn span{position:relative;z-index:1}
+#cancel-checkout{background:transparent;border:none;color:var(--text-dim);font-family:'Share Tech Mono',monospace;font-size:.68rem;letter-spacing:.12em;cursor:pointer;padding:.6rem;transition:color .2s;min-height:44px}
+#cancel-checkout:active{color:var(--neon-cyan)}
+
+/* ===== SUCCESS SCREEN ===== */
+#success-screen{position:fixed;inset:0;z-index:9000;background:var(--bg-deep);display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem}
+#success-screen.show{display:flex}
+.success-icon{width:90px;height:90px;border-radius:50%;border:2px solid var(--neon-green);display:flex;align-items:center;justify-content:center;margin:0 auto 1.3rem;animation:success-pop .5s cubic-bezier(0.34,1.56,0.64,1)}
+.success-icon svg{width:44px;height:44px;stroke:var(--neon-green);fill:none;stroke-width:2;stroke-linecap:round}
+.success-title{font-family:'Orbitron',monospace;font-size:clamp(1.3rem,4vw,1.8rem);font-weight:900;color:var(--neon-green);letter-spacing:.12em;text-shadow:0 0 20px var(--neon-green);margin-bottom:.5rem}
+.success-sub{font-size:.78rem;color:rgba(57,255,20,0.6);letter-spacing:.18em;margin-bottom:1rem}
+.order-id{font-size:.68rem;color:var(--text-dim);letter-spacing:.12em;margin-bottom:1.5rem}
+#new-order-btn{background:transparent;border:1px solid var(--neon-green);color:var(--neon-green);padding:.8rem 2.2rem;font-family:'Share Tech Mono',monospace;font-size:.78rem;letter-spacing:.12em;cursor:pointer;transition:all .25s;min-height:52px}
+#new-order-btn:active{background:rgba(57,255,20,0.12);box-shadow:0 0 20px rgba(57,255,20,0.3)}
+
+/* ===== TOAST ===== */
+#toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(120px);background:rgba(0,245,255,0.1);border:1px solid var(--border-cyan);color:var(--neon-cyan);padding:.65rem 1.4rem;font-size:.72rem;letter-spacing:.08em;z-index:9999;transition:transform .35s cubic-bezier(0.34,1.56,0.64,1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ===== HELP OVERLAY ===== */
+#help-overlay{position:fixed;inset:0;z-index:8500;background:rgba(0,0,0,0.92);display:none;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#help-overlay.show{display:flex}
+#help-panel{width:100%;max-width:520px;background:rgba(0,8,20,0.95);border:1px solid var(--border-magenta);padding:clamp(1.5rem,4vw,2.2rem);position:relative;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#help-panel::-webkit-scrollbar{width:3px}
+#help-panel::-webkit-scrollbar-thumb{background:var(--border-magenta)}
+.help-title{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;color:var(--neon-magenta);letter-spacing:.12em;text-shadow:0 0 15px var(--neon-magenta);margin-bottom:.25rem}
+.help-sub{font-size:.65rem;color:rgba(255,0,170,0.4);letter-spacing:.2em;margin-bottom:1.5rem}
+.help-step{display:flex;gap:1rem;align-items:flex-start;margin-bottom:1.2rem;padding-bottom:1.2rem;border-bottom:1px solid rgba(0,245,255,0.08)}
+.help-step:last-of-type{border-bottom:none;margin-bottom:1.5rem}
+.help-num{flex-shrink:0;width:36px;height:36px;border:1px solid var(--border-cyan);display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:.8rem;color:var(--neon-cyan)}
+.help-text{}
+.help-text strong{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--neon-cyan);margin-bottom:.3rem;letter-spacing:.03em}
+.help-text p{font-family:'Rajdhani',sans-serif;font-size:.9rem;color:rgba(0,245,255,0.65);line-height:1.55;font-weight:400;letter-spacing:.01em}
+.help-hint{background:rgba(0,245,255,0.04);border:1px solid rgba(0,245,255,0.12);padding:.8rem 1rem;margin-bottom:1.5rem;font-family:'Rajdhani',sans-serif;font-size:.88rem;color:rgba(0,245,255,0.6);line-height:1.5}
+.help-hint span{color:var(--neon-green)}
+#help-close{width:100%;padding:.9rem;background:transparent;border:1px solid var(--neon-magenta);color:var(--neon-magenta);font-family:'Share Tech Mono',monospace;font-size:.75rem;letter-spacing:.12em;cursor:pointer;transition:all .25s;min-height:52px}
+#help-close:active{background:rgba(255,0,170,0.12)}
+.help-corner{position:absolute;width:10px;height:10px;border-color:var(--neon-magenta);border-style:solid}
+.help-corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.help-corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.help-corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.help-corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+
+/* ===== ANIMATIONS ===== */
+@keyframes glitch-text{
+  0%,95%,100%{text-shadow:0 0 30px var(--neon-cyan),0 0 60px rgba(0,245,255,.5)}
+  96%{text-shadow:-3px 0 var(--neon-magenta),3px 0 var(--neon-green),0 0 30px var(--neon-cyan);transform:skewX(-5deg)}
+  97%{text-shadow:3px 0 var(--neon-magenta),-3px 0 var(--neon-green),0 0 30px var(--neon-cyan);transform:skewX(3deg)}
+  98%{text-shadow:0 0 30px var(--neon-cyan),0 0 60px rgba(0,245,255,.5);transform:skewX(0)}
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes scan-line{0%{left:-100%}100%{left:100%}}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:1}100%{transform:scale(1.4);opacity:0}}
+@keyframes success-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes btn-flash{0%,100%{background:transparent}50%{background:rgba(0,245,255,0.2)}}
+@keyframes flicker{0%,98%,100%{opacity:1}99%{opacity:.3}}
+</style>
+</head>
+<body>
+<!-- CURSOR (mouse only) -->
+<div id="cursor"></div>
+<div id="cursor-dot"></div>
+
+<!-- EFFECTS -->
+<div id="scanlines"></div>
+<div class="glitch-overlay"></div>
+
+<!-- ===== BOOT SCREEN ===== -->
+<div id="boot">
+  <canvas id="boot-canvas"></canvas>
+  <div id="boot-content">
+    <div class="boot-logo">NEON<span>BREW</span></div>
+    <div class="boot-sub">// CAFÉ OPERATING SYSTEM //</div>
+    <div id="boot-terminal">
+      <div class="boot-line" id="bl1">$ INITIALIZING NEON BREW NODE...</div>
+      <div class="boot-line" id="bl2">$ LOADING DRINK DATABASE v2.0.77...</div>
+      <div class="boot-line" id="bl3">$ CONNECTING TO NEURAL MENU GRID...</div>
+      <div class="boot-line" id="bl4">$ CALIBRATING FLAVOR MATRIX...</div>
+      <div class="boot-line" id="bl5">$ PAYMENT NODE SYNC: OK</div>
+      <div class="boot-line" id="bl6">$ SECURITY LAYER: ACTIVE</div>
+      <div class="boot-line" id="bl7"><span style="color:var(--neon-green)">▶ ACCESS GRANTED</span><span class="boot-cursor"></span></div>
+    </div>
+    <div id="boot-progress"><div id="boot-bar"></div></div>
+    <div id="access-granted">// SYSTEM ONLINE //</div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="app">
+  <!-- HUD TOP -->
+  <div id="hud-top">
+    <div class="hud-logo">NEON<span>BREW</span></div>
+    <div class="hud-center" id="hud-status">◈ MENU GRID ACTIVE ◈</div>
+    <div class="hud-right">
+      <div class="sys-time" id="sys-time">--:--:--</div>
+      <button id="help-btn" onclick="openHelp()" aria-label="Hilfe"></button>
+      <button id="cart-btn">
+        🛒 BESTELLUNG
+        <span id="cart-count">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MENU AREA -->
+  <div id="menu-area">
+    <div id="categories">
+      <button class="cat-btn active" data-cat="all">ALLE</button>
+      <button class="cat-btn" data-cat="coffee">KAFFEE</button>
+      <button class="cat-btn" data-cat="cold">KALT</button>
+      <button class="cat-btn" data-cat="special">SPECIAL</button>
+      <button class="cat-btn" data-cat="food">FOOD</button>
+    </div>
+    <div id="carousel-wrap">
+      <button class="nav-arrow" id="prev-btn" aria-label="Zurück">◂</button>
+      <div id="cards-viewport">
+        <div id="cards-track"></div>
+      </div>
+      <button class="nav-arrow" id="next-btn" aria-label="Weiter">▸</button>
+    </div>
+    <div id="dots-wrap"></div>
+    <div id="prod-counter"></div>
+  </div>
+
+  <!-- HUD BOTTOM -->
+  <div id="hud-bottom">
+    <span>SYS: OK</span>
+    <span>◈ WISCHEN ODER PFEILE ◈</span>
+    <span>v2.0.77</span>
+  </div>
+</div>
+
+<!-- ===== CART PANEL ===== -->
+<div id="cart-panel">
+  <div id="cart-header">
+    <div class="cart-title">◈ IHRE BESTELLUNG</div>
+    <button id="cart-close" aria-label="Schließen">✕</button>
+  </div>
+  <div id="cart-items">
+    <div class="cart-empty">// LEER //<br>Noch nichts ausgewählt.<br><br>Wählen Sie Produkte<br>aus dem Menü.</div>
+  </div>
+  <div id="cart-footer">
+    <div class="cart-total-row">
+      <span class="cart-total-label">◈ GESAMT</span>
+      <span class="cart-total-val" id="cart-total">€0.00</span>
+    </div>
+    <button id="checkout-btn" onclick="openCheckout()"><span>▸ ZUR KASSE</span></button>
+  </div>
+</div>
+
+<!-- ===== CHECKOUT OVERLAY ===== -->
+<div id="checkout-overlay">
+  <canvas id="checkout-bg-canvas"></canvas>
+  <div id="checkout-panel">
+    <div class="card-corner tl"></div><div class="card-corner tr"></div>
+    <div class="card-corner bl"></div><div class="card-corner br"></div>
+    <div class="checkout-title">ZAHLUNG AKTIV</div>
+    <div class="checkout-sub">// TRANSAKTION AUTORISIEREN //</div>
+    <div class="checkout-amount" id="checkout-amount">€0.00</div>
+    <div class="checkout-amount-label">GESAMTBETRAG</div>
+    <div class="tap-indicator">
+      <svg viewBox="0 0 24 24"><path d="M2 8.5C2 5.46 4.46 3 7.5 3c1.74 0 3.29.81 4.33 2.07M12 3h5.5C19.43 3 21 4.57 21 6.5v11c0 1.93-1.57 3.5-3.5 3.5h-11C4.57 21 3 19.43 3 17.5v-9M9 12l2 2 4-4"/></svg>
+    </div>
+    <div class="checkout-sub" style="margin-bottom:.9rem">ZAHLUNGSART WÄHLEN</div>
+    <div class="payment-methods">
+      <div class="pay-method" onclick="selectPayment(this,'apple')">
+        <div class="pay-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="color:#fff;opacity:.9"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.29.07 2.18.73 2.93.73.8 0 2.29-.9 3.83-.77 1.54.14 2.7.75 3.44 1.89-3.12 1.87-2.6 5.87.47 7.03-.56 1.39-1.28 2.73-2.67 4zm-3.27-16c.12 1.6-.47 3.17-1.52 4.27-.99 1.04-2.54 1.85-4.07 1.73-.17-1.57.52-3.21 1.55-4.25C10.74 4.9 12.32 4.1 13.78 4.28z"/></svg>
+        </div>
+        <div class="pay-label">APPLE PAY</div>
+      </div>
+      <div class="pay-method" onclick="selectPayment(this,'google')">
+        <div class="pay-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M21.8 12.2c0-.7-.1-1.3-.2-1.9H12v3.6h5.5c-.2 1.3-1 2.3-2 3v2.5h3.3c1.9-1.8 3-4.4 3-7.2z" fill="#4285F4"/><path d="M12 22c2.7 0 5-1 6.7-2.6l-3.3-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3v2.6C4.8 19.6 8.1 22 12 22z" fill="#34A853"/><path d="M6.4 13.8c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8V7.6H3A10 10 0 0 0 2 12c0 1.6.4 3.1 1 4.4l3.4-2.6z" fill="#FBBC05"/><path d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 2.9 14.6 2 12 2 8.1 2 4.8 4.4 3 7.6l3.4 2.6C7.2 7.7 9.4 5.9 12 5.9z" fill="#EA4335"/></svg>
+        </div>
+        <div class="pay-label">GOOGLE PAY</div>
+      </div>
+      <div class="pay-method" onclick="selectPayment(this,'card')">
+        <div class="pay-icon" style="display:flex;flex-direction:column;gap:3px;align-items:center">
+          <svg width="30" height="19" viewBox="0 0 48 30"><rect width="48" height="30" rx="4" fill="#1A1F71"/><circle cx="20" cy="15" r="9" fill="#EB001B"/><circle cx="28" cy="15" r="9" fill="#F79E1B"/><path d="M24 8.3a9 9 0 0 1 0 13.4A9 9 0 0 1 24 8.3z" fill="#FF5F00"/></svg>
+          <svg width="30" height="10" viewBox="0 0 80 26"><text x="0" y="20" font-family="Arial Black,Arial" font-weight="900" font-size="20" fill="white" letter-spacing="-1">VISA</text></svg>
+        </div>
+        <div class="pay-label">KARTE</div>
+      </div>
+    </div>
+    <button id="confirm-btn" onclick="confirmPayment()"><span>◈ ZAHLUNG BESTÄTIGEN ◈</span></button>
+    <button id="cancel-checkout" onclick="closeCheckout()">// ABBRECHEN //</button>
+  </div>
+</div>
+
+<!-- ===== SUCCESS SCREEN ===== -->
+<div id="success-screen">
+  <div class="success-icon">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  </div>
+  <div class="success-title">ZAHLUNG ERFOLGREICH</div>
+  <div class="success-sub">// BESTELLUNG AUFGEGEBEN //</div>
+  <div class="order-id" id="order-id">BESTELLNR: #<span></span></div>
+  <div style="font-size:.75rem;color:var(--text-dim);letter-spacing:.12em;margin-bottom:2rem;line-height:2">IHR GETRÄNK WIRD VORBEREITET<br>WARTEZEIT: <span style="color:var(--neon-green)">4–7 MIN</span></div>
+  <button id="new-order-btn" onclick="resetSystem()">◈ NEUE BESTELLUNG</button>
+</div>
+
+<!-- ===== HELP OVERLAY ===== -->
+<div id="help-overlay">
+  <div id="help-panel">
+    <div class="help-corner tl"></div><div class="help-corner tr"></div>
+    <div class="help-corner bl"></div><div class="help-corner br"></div>
+    <div class="help-title">HILFE</div>
+    <div class="help-sub">// SO FUNKTIONIERT DAS SYSTEM //</div>
+
+    <div class="help-step">
+      <div class="help-num">1</div>
+      <div class="help-text">
+        <strong>Produkt auswählen</strong>
+        <p>Wischen Sie nach links oder rechts, um durch die Karten zu blättern. Oder tippen Sie auf die Pfeile links und rechts.</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="help-num">2</div>
+      <div class="help-text">
+        <strong>Kategorie filtern</strong>
+        <p>Oben gibt es Schaltflächen zum Filtern: ALLE · KAFFEE · KALT · SPECIAL · FOOD. Tippen Sie darauf, um nur diese Produkte anzuzeigen.</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="help-num">3</div>
+      <div class="help-text">
+        <strong>Zum Warenkorb hinzufügen</strong>
+        <p>Tippen Sie auf <span style="color:var(--neon-cyan)">"+ IN DEN WARENKORB"</span> auf der Karte. Das Produkt wird automatisch gespeichert.</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="help-num">4</div>
+      <div class="help-text">
+        <strong>Bestellung ansehen</strong>
+        <p>Tippen Sie oben rechts auf <span style="color:var(--neon-cyan)">🛒 BESTELLUNG</span>, um alle gewählten Produkte und den Gesamtpreis zu sehen.</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="help-num">5</div>
+      <div class="help-text">
+        <strong>Bezahlen</strong>
+        <p>Tippen Sie auf <span style="color:var(--neon-magenta)">"ZUR KASSE"</span>, wählen Sie Apple Pay, Google Pay oder Karte — dann auf <span style="color:var(--neon-magenta)">"ZAHLUNG BESTÄTIGEN"</span>.</p>
+      </div>
+    </div>
+
+    <div class="help-hint">
+      <span>Tipp:</span> Die Zahl auf dem orangenen Kreis beim Warenkorb-Button zeigt an, wie viele Artikel sich darin befinden.
+    </div>
+
+    <button id="help-close" onclick="closeHelp()">◈ VERSTANDEN — ZURÜCK ZUM MENÜ</button>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div id="toast"></div>
+
+<script>
+// ===== DETECT TOUCH =====
+const isTouch='ontouchstart' in window;
+
+// ===== CURSOR (mouse only) =====
+if(!isTouch){
+  const cur=document.getElementById('cursor'),curD=document.getElementById('cursor-dot');
+  cur.style.display='block';curD.style.display='block';
+  document.addEventListener('mousemove',e=>{
+    cur.style.left=e.clientX+'px';cur.style.top=e.clientY+'px';
+    curD.style.left=e.clientX+'px';curD.style.top=e.clientY+'px';
+  });
+  document.addEventListener('mousedown',()=>{cur.style.width='12px';cur.style.height='12px'});
+  document.addEventListener('mouseup',()=>{cur.style.width='20px';cur.style.height='20px'});
+}
+
+// ===== AUDIO ENGINE =====
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let audioCtx;
+function getAudio(){if(!audioCtx)audioCtx=new AudioCtx();return audioCtx}
+function playClick(){
+  try{
+    const a=getAudio(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);
+    o.type='square';o.frequency.setValueAtTime(880,a.currentTime);
+    o.frequency.exponentialRampToValueAtTime(440,a.currentTime+.05);
+    g.gain.setValueAtTime(.08,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.1);
+    o.start();o.stop(a.currentTime+.1);
+  }catch(e){}
+}
+function playAdd(){
+  try{
+    const a=getAudio();
+    [440,880,1320].forEach((f,i)=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.connect(g);g.connect(a.destination);
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,a.currentTime+i*.06);
+      g.gain.linearRampToValueAtTime(.07,a.currentTime+i*.06+.02);
+      g.gain.exponentialRampToValueAtTime(.001,a.currentTime+i*.06+.15);
+      o.start(a.currentTime+i*.06);o.stop(a.currentTime+i*.06+.15);
+    });
+  }catch(e){}
+}
+function playSuccess(){
+  try{
+    const a=getAudio();
+    [523,659,784,1047].forEach((f,i)=>{
+      const o=a.createOscillator(),g=a.createGain();
+      o.connect(g);g.connect(a.destination);
+      o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,a.currentTime+i*.1);
+      g.gain.linearRampToValueAtTime(.09,a.currentTime+i*.1+.05);
+      g.gain.exponentialRampToValueAtTime(.001,a.currentTime+i*.1+.4);
+      o.start(a.currentTime+i*.1);o.stop(a.currentTime+i*.1+.5);
+    });
+  }catch(e){}
+}
+function playGlitch(){
+  try{
+    const a=getAudio(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);
+    o.type='sawtooth';o.frequency.value=80;
+    g.gain.setValueAtTime(.05,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.08);
+    o.start();o.stop(a.currentTime+.08);
+  }catch(e){}
+}
+
+// ===== MATRIX RAIN =====
+function initMatrix(canvas,palette){
+  const ctx=canvas.getContext('2d');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+  resize();
+  window.addEventListener('resize',resize);
+  const cols=Math.floor(canvas.width/14);
+  const drops=Array(cols).fill(1);
+  const chars='アイウエオカキクサシスタチナニABCDEF0123456789@#$%*[]{}';
+  function draw(){
+    ctx.fillStyle='rgba(5,1,10,0.06)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    drops.forEach((y,i)=>{
+      const c=chars[Math.floor(Math.random()*chars.length)];
+      ctx.fillStyle=palette[i%palette.length];
+      ctx.globalAlpha=Math.random()*.7+.2;
+      ctx.font='12px Share Tech Mono,monospace';
+      ctx.fillText(c,i*14,y*14);
+      ctx.globalAlpha=1;
+      if(y*14>canvas.height&&Math.random()>.975)drops[i]=0;
+      drops[i]++;
+    });
+  }
+  return setInterval(draw,55);
+}
+
+// ===== BOOT SEQUENCE =====
+function bootSequence(){
+  const canvas=document.getElementById('boot-canvas');
+  const mi=initMatrix(canvas,['#00f5ff','#39ff14','rgba(0,245,255,0.35)']);
+  const lines=['bl1','bl2','bl3','bl4','bl5','bl6','bl7'];
+  lines.forEach((id,i)=>{
+    setTimeout(()=>{
+      const el=document.getElementById(id);
+      if(el){el.classList.add('show');if(i<6)playGlitch();}
+    },300+i*280);
+  });
+  setTimeout(()=>{document.getElementById('boot-bar').style.width='100%'},400);
+  setTimeout(()=>{document.getElementById('access-granted').style.opacity='1';playSuccess();},2200);
+  setTimeout(()=>{clearInterval(mi);transitionToApp();},3000);
+}
+
+function transitionToApp(){
+  const boot=document.getElementById('boot');
+  boot.style.transition='opacity .6s ease';boot.style.opacity='0';
+  setTimeout(()=>{boot.style.display='none';document.getElementById('app').classList.add('show');initApp();},600);
+}
+
+// ===== PRODUCT DATA =====
+const products=[
+  {id:1,name:'SYNTH-ESPRESSO Ω',cat:'coffee',price:3.20,tag:'hot',desc:'Ultra-dichter Kaffee-Shot. 9-Bar Druck. Einzel-Origin Bohnen.',img:'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400&q=80&auto=format'},
+  {id:2,name:'CYBER LATTE v3',cat:'coffee',price:4.50,tag:'',desc:'Doppelter Espresso mit aufgeschäumter Hafermilch. Perfekte Balance.',img:'https://images.unsplash.com/photo-1561047029-3000c68339ca?w=400&q=80&auto=format'},
+  {id:3,name:'GHOST CAPPUCCINO',cat:'coffee',price:4.20,tag:'new',desc:'Aktivkohle-Schaum auf Espresso. Vanille-Extrakt. Dunkel und cremig.',img:'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400&q=80&auto=format'},
+  {id:4,name:'NEON FLAT WHITE',cat:'coffee',price:3.90,tag:'',desc:'Doppelter Ristretto mit gedämpfter Hafermilch. Intensiv & seidig.',img:'https://images.unsplash.com/photo-1485808191679-5f86510bd9d4?w=400&q=80&auto=format'},
+  {id:5,name:'CRYO-BREW ALPHA',cat:'cold',price:4.80,tag:'hot',desc:'48h Kaltextraktion. Stickstoff-geladen. Seidig & stark.',img:'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&q=80&auto=format'},
+  {id:6,name:'ICE.MATCHA 9000',cat:'cold',price:5.20,tag:'new',desc:'Zeremonien-Matcha auf Eis. Oatmilk. Antioxidantien pur.',img:'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&q=80&auto=format'},
+  {id:7,name:'VOID COLD BREW',cat:'cold',price:4.40,tag:'',desc:'12h Extraktion. Mitternachts-Röstung. Schwarz wie das Universum.',img:'https://images.unsplash.com/photo-1462988031780-04a05e533d21?w=400&q=80&auto=format'},
+  {id:8,name:'NEXUS SMOOTHIE',cat:'cold',price:5.80,tag:'',desc:'Früchte-Matrix. Spirulina, Kollagen, Adaptogene. Vitalität: MAX.',img:'https://images.unsplash.com/photo-1553530666-ba11a90bb0ae?w=400&q=80&auto=format'},
+  {id:9,name:'PHANTOM CHAI Ψ',cat:'special',price:5.50,tag:'hot',desc:'11 geheime Gewürze. Serviert im versiegelten Glasgefäß.',img:'https://images.unsplash.com/photo-1571658005315-67f0ceea8bd2?w=400&q=80&auto=format'},
+  {id:10,name:'NEURAL CORTADO',cat:'special',price:6.20,tag:'',desc:'1:1 Espresso & Milch. Experimentell. Einzel-Estate Kepler-Blend.',img:'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=400&q=80&auto=format'},
+  {id:11,name:'HOLO-AFFOGATO',cat:'special',price:7.00,tag:'new',desc:'Vanille-Gelato ertränkt in Triple-Ristretto. Temporäre Realitätsverzerrung.',img:'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=400&q=80&auto=format'},
+  {id:12,name:'DATA CROISSANT',cat:'food',price:3.80,tag:'',desc:'72-lagig buttergerollt. Goldbraun gebacken. Kalorisch-verschlüsselt.',img:'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&q=80&auto=format'},
+  {id:13,name:'CIRCUIT TOAST',cat:'food',price:4.20,tag:'hot',desc:'Sauerteig, Avocado, Ei. Voller Omega-3 und Protein.',img:'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=400&q=80&auto=format'},
+  {id:14,name:'HACK THE BOX',cat:'food',price:8.50,tag:'new',desc:'Tagesbox-Überraschung. Inhalt variiert täglich. Risiko: minimal.',img:'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400&q=80&auto=format'},
+];
+
+// ===== STATE =====
+let currentIndex=0,cart={},currentFilter='all',filteredProducts=[...products];
+
+// ===== CLOCK =====
+function updateTime(){document.getElementById('sys-time').textContent=new Date().toTimeString().split(' ')[0]}
+setInterval(updateTime,1000);updateTime();
+
+// ===== INIT =====
+function initApp(){
+  renderCards();
+  initSwipe();
+  document.getElementById('cart-btn').addEventListener('click',()=>{playClick();toggleCart()});
+  document.getElementById('cart-close').addEventListener('click',()=>{playClick();toggleCart()});
+  document.querySelectorAll('.cat-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      playClick();
+      document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter=btn.dataset.cat;
+      currentIndex=0;
+      filteredProducts=currentFilter==='all'?[...products]:products.filter(p=>p.cat===currentFilter);
+      renderCards();
+    });
+  });
+}
+
+function renderCards(){
+  const track=document.getElementById('cards-track');
+  const dots=document.getElementById('dots-wrap');
+  track.innerHTML='';dots.innerHTML='';
+  filteredProducts.forEach((p,i)=>{
+    const tagHtml=p.tag?`<div class="card-tag ${p.tag==='new'?'new':'hot'}">${p.tag==='new'?'NEU':p.tag==='hot'?'BELIEBT':'SELTEN'}</div>`:'';
+    const card=document.createElement('div');
+    card.className='menu-card'+(i===currentIndex?' active':'');
+    card.dataset.index=i;
+    card.innerHTML=`
+      ${tagHtml}
+      <div class="card-corner tl"></div><div class="card-corner tr"></div>
+      <div class="card-corner bl"></div><div class="card-corner br"></div>
+      <div class="card-img-wrap">
+        <img src="${p.img}" alt="${p.name}" loading="lazy" decoding="async">
+        <div class="card-img-overlay"></div>
+      </div>
+      <div class="card-cat-label">// ${p.cat==='coffee'?'KAFFEE':p.cat==='cold'?'KALT':p.cat==='special'?'SPECIAL':'FOOD'} //</div>
+      <div class="card-name">${p.name}</div>
+      <div class="card-desc">${p.desc}</div>
+      <div class="card-footer">
+        <div class="card-price">€${p.price.toFixed(2)}</div>
+        <button class="add-btn" onclick="addToCart(${p.id},event)"><span>+ WARENKORB</span></button>
+      </div>
+    `;
+    card.addEventListener('click',e=>{
+      if(e.target.closest('.add-btn'))return;
+      const idx=parseInt(card.dataset.index);
+      if(idx!==currentIndex){playClick();goTo(idx);}
+    });
+    track.appendChild(card);
+    const dot=document.createElement('div');
+    dot.className='dot'+(i===currentIndex?' active':'');
+    dot.addEventListener('click',()=>{playClick();goTo(i);});
+    dots.appendChild(dot);
+  });
+  updateCarousel();
+  document.getElementById('prod-counter').textContent=`◈ ${currentIndex+1} / ${filteredProducts.length} ◈`;
+}
+
+function updateCarousel(){
+  const track=document.getElementById('cards-track');
+  const cards=track.querySelectorAll('.menu-card');
+  const vp=document.getElementById('cards-viewport');
+  const cardW=cards[0]?cards[0].offsetWidth+12*2:340+24;
+  const vpW=vp.offsetWidth;
+  const offset=vpW/2-cardW/2-currentIndex*cardW;
+  track.style.transform=`translateX(${offset}px)`;
+  cards.forEach((c,i)=>c.classList.toggle('active',i===currentIndex));
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===currentIndex));
+  const pb=document.getElementById('prev-btn'),nb=document.getElementById('next-btn');
+  currentIndex===0?pb.setAttribute('disabled',''):pb.removeAttribute('disabled');
+  currentIndex===filteredProducts.length-1?nb.setAttribute('disabled',''):nb.removeAttribute('disabled');
+  document.getElementById('prod-counter').textContent=`◈ ${currentIndex+1} / ${filteredProducts.length} ◈`;
+}
+
+function goTo(idx){
+  currentIndex=Math.max(0,Math.min(filteredProducts.length-1,idx));
+  updateCarousel();
+}
+
+document.getElementById('prev-btn').addEventListener('click',()=>{playClick();goTo(currentIndex-1)});
+document.getElementById('next-btn').addEventListener('click',()=>{playClick();goTo(currentIndex+1)});
+
+// ===== SWIPE (touch + mouse) =====
+function initSwipe(){
+  const vp=document.getElementById('cards-viewport');
+  let startX=0,startY=0,isDragging=false,moved=false;
+  const threshold=45;
+
+  // Touch
+  vp.addEventListener('touchstart',e=>{
+    startX=e.touches[0].clientX;startY=e.touches[0].clientY;
+    isDragging=true;moved=false;
+  },{passive:true});
+  vp.addEventListener('touchmove',e=>{
+    if(!isDragging)return;
+    const dx=Math.abs(e.touches[0].clientX-startX);
+    const dy=Math.abs(e.touches[0].clientY-startY);
+    if(dx>dy&&dx>10){e.preventDefault();moved=true;}
+  },{passive:false});
+  vp.addEventListener('touchend',e=>{
+    if(!isDragging)return;
+    const dx=startX-e.changedTouches[0].clientX;
+    if(Math.abs(dx)>threshold){playClick();goTo(currentIndex+(dx>0?1:-1));}
+    isDragging=false;
+  });
+
+  // Mouse drag
+  vp.addEventListener('mousedown',e=>{startX=e.clientX;isDragging=true;moved=false;});
+  document.addEventListener('mousemove',e=>{if(isDragging&&Math.abs(e.clientX-startX)>5)moved=true;});
+  document.addEventListener('mouseup',e=>{
+    if(!isDragging)return;
+    const dx=startX-e.clientX;
+    if(Math.abs(dx)>threshold){playClick();goTo(currentIndex+(dx>0?1:-1));}
+    isDragging=false;
+  });
+
+  // Keyboard
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'){playClick();goTo(currentIndex-1);}
+    if(e.key==='ArrowRight'){playClick();goTo(currentIndex+1);}
+  });
+}
+
+// ===== CART =====
+function addToCart(id,e){
+  if(e)e.stopPropagation();
+  playAdd();
+  const p=products.find(x=>x.id===id);
+  if(!p)return;
+  cart[id]?cart[id].qty++:cart[id]={...p,qty:1};
+  updateCartUI();
+  if(e){
+    const btn=e.target.closest('.add-btn');
+    if(btn){btn.classList.add('clicked');setTimeout(()=>btn.classList.remove('clicked'),300);}
+  }
+  showToast(`✓ ${p.name} hinzugefügt`);
+  const cb=document.getElementById('cart-btn');
+  cb.style.boxShadow='0 0 20px rgba(0,245,255,0.6)';
+  setTimeout(()=>cb.style.boxShadow='',450);
+}
+
+function updateCartUI(){
+  const items=Object.values(cart);
+  const count=items.reduce((s,i)=>s+i.qty,0);
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const cc=document.getElementById('cart-count');
+  cc.style.display=count>0?'flex':'none';cc.textContent=count;
+  document.getElementById('cart-total').textContent='€'+total.toFixed(2);
+  const container=document.getElementById('cart-items');
+  if(items.length===0){
+    container.innerHTML='<div class="cart-empty">// LEER //<br>Noch nichts ausgewählt.<br><br>Wählen Sie Produkte<br>aus dem Menü.</div>';
+    return;
+  }
+  container.innerHTML=items.map(item=>`
+    <div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-price">€${(item.price*item.qty).toFixed(2)}</div>
+      </div>
+      <div class="cart-item-qty">
+        <button class="qty-btn" onclick="changeQty(${item.id},-1)" aria-label="Weniger">−</button>
+        <span class="qty-val">${item.qty}</span>
+        <button class="qty-btn" onclick="changeQty(${item.id},1)" aria-label="Mehr">+</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function changeQty(id,delta){
+  playClick();
+  if(!cart[id])return;
+  cart[id].qty+=delta;
+  if(cart[id].qty<=0)delete cart[id];
+  updateCartUI();
+}
+
+function toggleCart(){
+  document.getElementById('cart-panel').classList.toggle('open');
+}
+
+// ===== CHECKOUT =====
+let selectedPayment=null,checkoutInterval=null;
+function openCheckout(){
+  const total=Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0);
+  if(total===0){showToast('◈ Warenkorb ist leer');return;}
+  document.getElementById('checkout-amount').textContent='€'+total.toFixed(2);
+  document.getElementById('checkout-overlay').classList.add('show');
+  document.getElementById('cart-panel').classList.remove('open');
+  if(checkoutInterval)clearInterval(checkoutInterval);
+  const canvas=document.getElementById('checkout-bg-canvas');
+  checkoutInterval=initMatrix(canvas,['rgba(255,0,170,0.35)','rgba(255,0,170,0.18)','rgba(0,245,255,0.12)']);
+  playGlitch();
+}
+
+function closeCheckout(){
+  playClick();
+  document.getElementById('checkout-overlay').classList.remove('show');
+  if(checkoutInterval){clearInterval(checkoutInterval);checkoutInterval=null;}
+}
+
+function selectPayment(el,method){
+  playClick();selectedPayment=method;
+  document.querySelectorAll('.pay-method').forEach(m=>m.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function confirmPayment(){
+  if(!selectedPayment){showToast('◈ Bitte Zahlungsart wählen');return;}
+  playSuccess();
+  const orderId=Math.random().toString(36).substr(2,8).toUpperCase();
+  document.getElementById('order-id').querySelector('span').textContent=orderId;
+  document.getElementById('checkout-overlay').classList.remove('show');
+  if(checkoutInterval){clearInterval(checkoutInterval);checkoutInterval=null;}
+  setTimeout(()=>document.getElementById('success-screen').classList.add('show'),200);
+}
+
+function resetSystem(){
+  playClick();cart={};selectedPayment=null;
+  updateCartUI();
+  document.getElementById('success-screen').classList.remove('show');
+  document.querySelectorAll('.pay-method').forEach(m=>m.classList.remove('selected'));
+  showToast('◈ Neue Bestellung gestartet');
+}
+
+// ===== HELP =====
+function openHelp(){
+  playClick();
+  document.getElementById('help-overlay').classList.add('show');
+}
+function closeHelp(){
+  playClick();
+  document.getElementById('help-overlay').classList.remove('show');
+}
+
+// ===== TOAST =====
+let toastTimeout;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===== SUBTLE GLITCH =====
+setInterval(()=>{
+  if(Math.random()<.12){
+    const app=document.getElementById('app');
+    app.style.transform='translateX(2px)';
+    setTimeout(()=>{app.style.transform='translateX(-1px)'},50);
+    setTimeout(()=>{app.style.transform=''},100);
+  }
+},6000);
+
+// ===== RESIZE =====
+let resizeTimer;
+window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(updateCarousel,100)});
+
+// ===== START =====
+bootSequence();
+</script>
+</body>
+</html>
